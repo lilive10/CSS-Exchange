@@ -19,7 +19,7 @@ param (
 
 . $PSScriptRoot\Get-FolderData.ps1
 . $PSScriptRoot\Get-LimitsExceeded.ps1
-. $PSScriptRoot\Get-BadDumpsterMappings.ps1
+. $PSScriptRoot\Tests\TestDumpsterMappings.ps1
 . $PSScriptRoot\Get-BadPermission.ps1
 . $PSScriptRoot\Get-BadPermissionJob.ps1
 . $PSScriptRoot\JobQueue.ps1
@@ -93,7 +93,7 @@ if ($script:anyDatabaseDown) {
 
 Write-Progress @progressParams -Status "Step 2 of 5"
 
-$badDumpsters = @(Get-BadDumpsterMappings -FolderData $folderData)
+$badDumpsters = @(Test-DumpsterMapping -FolderData $folderData)
 
 Write-Progress @progressParams -Status "Step 3 of 5"
 
@@ -180,17 +180,7 @@ if ($badMailEnabled.MailPublicFoldersDisconnected.Count -gt 0) {
     Write-Host $mailPublicFoldersDisconnectedFile -ForegroundColor Green
 }
 
-if ($badDumpsters.Count -gt 0) {
-    $badDumpsterFile = Join-Path $PSScriptRoot "BadDumpsterMappings.txt"
-    Set-Content -Path $badDumpsterFile -Value $badDumpsters
-
-    Write-Host
-    Write-Host $badDumpsters.Count "folders have invalid dumpster mappings. These folders are listed in"
-    Write-Host "the following file:"
-    Write-Host $badDumpsterFile -ForegroundColor Green
-    Write-Host "The -ExcludeDumpsters switch can be used to skip these folders during migration, or the"
-    Write-Host "folders can be deleted."
-}
+$badDumpsters | Write-TestDumpsterMappingResult
 
 if ($limitsExceeded.ChildCount.Count -gt 0) {
     $tooManyChildFoldersFile = Join-Path $PSScriptRoot "TooManyChildFolders.txt"
