@@ -24,7 +24,7 @@ param (
 . $PSScriptRoot\Get-BadPermissionJob.ps1
 . $PSScriptRoot\JobQueue.ps1
 . $PSScriptRoot\Remove-InvalidPermission.ps1
-. $PSScriptRoot\Get-BadMailEnabledFolder.ps1
+. $PSScriptRoot\Tests\TestMailEnabledFolders.ps1
 . $PSScriptRoot\..\..\..\Shared\Test-ScriptVersion.ps1
 
 if (-not $SkipVersionCheck) {
@@ -109,76 +109,7 @@ $badPermissions = @(Get-BadPermission -FolderData $folderData)
 
 # Output the results
 
-if ($badMailEnabled.FoldersToMailDisable.Count -gt 0) {
-    $foldersToMailDisableFile = Join-Path $PSScriptRoot "FoldersToMailDisable.txt"
-    Set-Content -Path $foldersToMailDisableFile -Value $badMailEnabled.FoldersToMailDisable
-
-    Write-Host
-    Write-Host $badMailEnabled.FoldersToMailDisable.Count "folders should be mail-disabled, either because the MailRecipientGuid"
-    Write-Host "does not exist, or because they are system folders. These are listed in the file called:"
-    Write-Host $foldersToMailDisableFile -ForegroundColor Green
-    Write-Host "After confirming the accuracy of the results, you can mail-disable them with the following command:"
-    Write-Host "Get-Content `"$foldersToMailDisableFile`" | % { Set-PublicFolder `$_ -MailEnabled `$false }" -ForegroundColor Green
-}
-
-if ($badMailEnabled.MailPublicFoldersToDelete.Count -gt 0) {
-    $mailPublicFoldersToDeleteFile = Join-Path $PSScriptRoot "MailPublicFolderOrphans.txt"
-    Set-Content -Path $mailPublicFoldersToDeleteFile -Value $badMailEnabled.MailPublicFoldersToDelete
-
-    Write-Host
-    Write-Host $badMailEnabled.MailPublicFoldersToDelete.Count "MailPublicFolders are orphans and should be deleted. They exist in Active Directory"
-    Write-Host "but are not linked to any public folder. These are listed in a file called:"
-    Write-Host $mailPublicFoldersToDeleteFile -ForegroundColor Green
-    Write-Host "After confirming the accuracy of the results, you can delete them with the following command:"
-    Write-Host "Get-Content `"$mailPublicFoldersToDeleteFile`" | % { `$folder = ([ADSI](`"LDAP://`$_`")); `$parent = ([ADSI]`"`$(`$folder.Parent)`"); `$parent.Children.Remove(`$folder) }" -ForegroundColor Green
-}
-
-if ($badMailEnabled.MailPublicFolderDuplicates.Count -gt 0) {
-    $mailPublicFolderDuplicatesFile = Join-Path $PSScriptRoot "MailPublicFolderDuplicates.txt"
-    Set-Content -Path $mailPublicFolderDuplicatesFile -Value $badMailEnabled.MailPublicFolderDuplicates
-
-    Write-Host
-    Write-Host $badMailEnabled.MailPublicFolderDuplicates.Count "MailPublicFolders are duplicates and should be deleted. They exist in Active Directory"
-    Write-Host "and point to a valid folder, but that folder points to some other directory object."
-    Write-Host "These are listed in a file called:"
-    Write-Host $mailPublicFolderDuplicatesFile -ForegroundColor Green
-    Write-Host "After confirming the accuracy of the results, you can delete them with the following command:"
-    Write-Host "Get-Content `"$mailPublicFolderDuplicatesFile`" | % { `$folder = ([ADSI](`"LDAP://`$_`")); `$parent = ([ADSI]`"`$(`$folder.Parent)`"); `$parent.Children.Remove(`$folder) }" -ForegroundColor Green
-
-    if ($badMailEnabled.EmailAddressMergeCommands.Count -gt 0) {
-        $emailAddressMergeScriptFile = Join-Path $PSScriptRoot "AddAddressesFromDuplicates.ps1"
-        Set-Content -Path $emailAddressMergeScriptFile -Value $badMailEnabled.EmailAddressMergeCommands
-        Write-Host "The duplicates we are deleting contain email addresses that might still be in use."
-        Write-Host "To preserve these, we generated a script that will add these to the linked objects for those folders."
-        Write-Host "After deleting the duplicate objects using the command above, run the script as follows to"
-        Write-Host "populate these addresses:"
-        Write-Host ".\$emailAddressMergeScriptFile" -ForegroundColor Green
-    }
-}
-
-if ($badMailEnabled.MailDisabledWithProxyGuid.Count -gt 0) {
-    $mailDisabledWithProxyGuidFile = Join-Path $PSScriptRoot "MailDisabledWithProxyGuid.txt"
-    Set-Content -Path $mailDisabledWithProxyGuidFile -Value $badMailEnabled.MailDisabledWithProxyGuid
-
-    Write-Host
-    Write-Host $badMailEnabled.MailDisabledWithProxyGuid.Count "public folders have proxy GUIDs even though the folders are mail-disabled."
-    Write-Host "These folders should be mail-enabled. They can be mail-disabled again afterwards if desired."
-    Write-Host "To mail-enable these folders, run:"
-    Write-Host "Get-Content `"$mailDisabledWithProxyGuidFile`" | % { Enable-MailPublicFolder `$_ }" -ForegroundColor Green
-}
-
-if ($badMailEnabled.MailPublicFoldersDisconnected.Count -gt 0) {
-    $mailPublicFoldersDisconnectedFile = Join-Path $PSScriptRoot "MailPublicFoldersDisconnected.txt"
-    Set-Content -Path $mailPublicFoldersDisconnectedFile -Value $badMailEnabled.MailPublicFoldersDisconnected
-
-    Write-Host
-    Write-Host $badMailEnabled.MailPublicFoldersDisconnected.Count "MailPublicFolders are disconnected from their folders. This means they exist in"
-    Write-Host "Active Directory and the folders are probably functioning as mail-enabled folders,"
-    Write-Host "even while the properties of the public folders themselves say they are not mail-enabled."
-    Write-Host "This can be complex to fix. Either the directory object should be deleted, or the public folder"
-    Write-Host "should be mail-enabled, or both. These directory objects are listed in a file called:"
-    Write-Host $mailPublicFoldersDisconnectedFile -ForegroundColor Green
-}
+$badMailEnabled | Write-TestMailEnabledFolderResult
 
 $badDumpsters | Write-TestDumpsterMappingResult
 

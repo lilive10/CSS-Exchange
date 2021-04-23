@@ -28,7 +28,7 @@
             }
 
             if (-not (Test-DumpsterValid $_ $FolderData)) {
-                New-TestDumpsterMappingResult $_
+                New-TestDumpsterMappingResult $_ "The -ExcludeDumpsters switch can be used to skip these folders during migration, or the folders can be deleted."
             }
         }
 
@@ -85,13 +85,23 @@ function New-TestDumpsterMappingResult {
     param (
         [Parameter(Position = 0)]
         [object]
-        $Folder
+        $Folder,
+
+        [Parameter(Position = 1)]
+        [string]
+        $ActionRequired
     )
 
     process {
         [PSCustomObject]@{
-            Identity = $Folder.Identity
-            EntryId  = $Folder.EntryId
+            TestName       = "DumpsterMapping"
+            ResultType     = "BadDumpsterMapping"
+            Severity       = "Error"
+            Data           = [PSCustomObject]@{
+                Identity = $Folder.Identity
+                EntryId  = $Folder.EntryId
+            }
+            ActionRequired = $ActionRequired
         }
     }
 }
@@ -114,15 +124,9 @@ function Write-TestDumpsterMappingResult {
 
     end {
         if ($badDumpsters.Count -gt 0) {
-            $badDumpsterFile = Join-Path $PSScriptRoot "BadDumpsterMappings.txt"
-            Set-Content -Path $badDumpsterFile -Value $badDumpsters
-
             Write-Host
-            Write-Host $badDumpsters.Count "folders have invalid dumpster mappings. These folders are listed in"
-            Write-Host "the following file:"
-            Write-Host $badDumpsterFile -ForegroundColor Green
-            Write-Host "The -ExcludeDumpsters switch can be used to skip these folders during migration, or the"
-            Write-Host "folders can be deleted."
+            Write-Host $badDumpsters.Count "folders have invalid dumpster mappings."
+            Write-Host $badDumpsters[0].ActionRequired
         }
     }
 }
