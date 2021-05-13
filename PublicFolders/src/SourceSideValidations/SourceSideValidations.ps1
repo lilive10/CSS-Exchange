@@ -19,12 +19,8 @@ param (
 
 . $PSScriptRoot\Get-FolderData.ps1
 . $PSScriptRoot\Get-LimitsExceeded.ps1
-. $PSScriptRoot\Tests\TestDumpsterMappings.ps1
-. $PSScriptRoot\Get-BadPermission.ps1
-. $PSScriptRoot\Get-BadPermissionJob.ps1
 . $PSScriptRoot\JobQueue.ps1
 . $PSScriptRoot\Remove-InvalidPermission.ps1
-. $PSScriptRoot\Tests\TestMailEnabledFolders.ps1
 . $PSScriptRoot\..\..\..\Shared\Test-ScriptVersion.ps1
 
 if (-not $SkipVersionCheck) {
@@ -105,7 +101,7 @@ $badMailEnabled = Get-BadMailEnabledFolder -FolderData $folderData
 
 Write-Progress @progressParams -Status "Step 5 of 5"
 
-$badPermissions = @(Get-BadPermission -FolderData $folderData)
+$badPermissions = @(Test-BadPermission -FolderData $folderData)
 
 # Output the results
 
@@ -146,16 +142,9 @@ if ($limitsExceeded.ItemCount.Count -gt 0) {
     Write-Host "In each of these folders, items should be deleted to reduce the item count."
 }
 
-if ($badPermissions.Count -gt 0) {
-    $badPermissionsFile = Join-Path $PSScriptRoot "InvalidPermissions.csv"
-    $badPermissions | Export-Csv -Path $badPermissionsFile -NoTypeInformation
+$badPermissions | Write-TestBadPermissionResult
 
-    Write-Host
-    Write-Host $badPermissions.Count "invalid permissions were found. These are listed in the following CSV file:"
-    Write-Host $badPermissionsFile -ForegroundColor Green
-    Write-Host "The invalid permissions can be removed using the RemoveInvalidPermissions switch as follows:"
-    Write-Host ".\SourceSideValidations.ps1 -RemoveInvalidPermissions" -ForegroundColor Green
-}
+
 
 $folderCountMigrationLimit = 250000
 

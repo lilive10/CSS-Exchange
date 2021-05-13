@@ -8,6 +8,54 @@
     )
 
     begin {
+        function GetCommandToMergeEmailAddresses($publicFolder, $orphanedMailPublicFolder) {
+            $linkedMailPublicFolder = Get-PublicFolder $publicFolder.Identity | Get-MailPublicFolder
+            $emailAddressesOnGoodObject = @($linkedMailPublicFolder.EmailAddresses | Where-Object { $_.ToString().StartsWith("smtp:", "OrdinalIgnoreCase") } | ForEach-Object { $_.ToString().Substring($_.ToString().IndexOf(':') + 1) })
+            $emailAddressesOnBadObject = @($orphanedMailPublicFolder.EmailAddresses | Where-Object { $_.ToString().StartsWith("smtp:", "OrdinalIgnoreCase") } | ForEach-Object { $_.ToString().Substring($_.ToString().IndexOf(':') + 1) })
+            $emailAddressesToAdd = $emailAddressesOnBadObject | Where-Object { -not $emailAddressesOnGoodObject.Contains($_) }
+            $emailAddressesToAdd = $emailAddressesToAdd | ForEach-Object { "`"" + $_ + "`"" }
+            if ($emailAddressesToAdd.Count -gt 0) {
+                $emailAddressesToAddString = [string]::Join(",", $emailAddressesToAdd)
+                $command = "Get-PublicFolder `"$($publicFolder.Identity)`" | Get-MailPublicFolder | Set-MailPublicFolder -EmailAddresses @{add=$emailAddressesToAddString}"
+                return $command
+            } else {
+                return $null
+            }
+        }
+
+        function New-TestMailEnabledFolderResult {
+            [CmdletBinding()]
+            param (
+                [Parameter(Position = 0)]
+                [string]
+                $Identity,
+
+                [Parameter(Position = 1)]
+                [string]
+                $EntryId,
+
+                [Parameter(Position = 2)]
+                [ValidateSet("MailEnabledSystemFolder", "MailEnabledWithNoADObject", "MailDisabledWithProxyGuid", "OrphanedMPF", "OrphanedMPFDuplicate", "OrphanedMPFDisconnected")]
+                [string]
+                $ResultType,
+
+                [Parameter(Position = 3)]
+                [string]
+                $ActionRequired
+            )
+
+            process {
+                [PSCustomObject]@{
+                    TestName        = "MailEnabledFolder"
+                    ResultType      = $ResultType
+                    Severity        = "Error"
+                    Identity        = $Identity
+                    EntryId         = $EntryId
+                    $ActionRequired = $ActionRequired
+                }
+            }
+        }
+
         $startTime = Get-Date
         $progressCount = 0
         $sw = New-Object System.Diagnostics.Stopwatch
@@ -25,9 +73,9 @@
         $mailDisabledWithProxyGuid = @($FolderData.IpmSubtree | Where-Object { $_.MailEnabled -ne $true -and -not [string]::IsNullOrEmpty($_.MailRecipientGuid) -and [Guid]::Empty -ne $_.MailRecipientGuid } | ForEach-Object { $_.Identity.ToString() })
         $mailDisabledWithProxyGuid | ForEach-Object {
             $params = @{
-                Identity = $_.Identity
-                EntryId = $_.EntryId
-                ResultType = "MailDisabledWithProxyGuid"
+                Identity       = $_.Identity
+                EntryId        = $_.EntryId
+                ResultType     = "MailDisabledWithProxyGuid"
                 ActionRequired = "Run Enable-MailPublicFolder on this folder. It can be mail-disabled again afterwards if desired."
             }
 
@@ -49,9 +97,9 @@
             $result = Get-MailPublicFolder $ipmSubtreeMailEnabled[$i].Identity -ErrorAction SilentlyContinue
             if ($null -eq $result) {
                 $params = @{
-                    Identity = $ipmSubtreeMailEnabled[$i].Identity
-                    EntryId = $ipmSubtreeMailEnabled[$i].EntryId
-                    ResultType = "MailEnabledWithNoADObject"
+                    Identity       = $ipmSubtreeMailEnabled[$i].Identity
+                    EntryId        = $ipmSubtreeMailEnabled[$i].EntryId
+                    ResultType     = "MailEnabledWithNoADObject"
                     ActionRequired = "Run Disable-MailPublicFolder on this folder"
                 }
 
@@ -117,9 +165,9 @@
                         $command = GetCommandToMergeEmailAddresses $pf $thisMPF
 
                         $params = @{
-                            Identity = $thisMPF.DistinguishedName.Replace("/", "\/")
-                            EntryId = ""
-                            ResultType = "OrphanedMPFDuplicate"
+                            Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
+                            EntryId        = ""
+                            ResultType     = "OrphanedMPFDuplicate"
                             ActionRequired = "Delete this directory object"
                         }
 
@@ -130,9 +178,9 @@
                         New-TestMailEnabledFolderResult @params
                     } else {
                         $params = @{
-                            Identity = $thisMPF.DistinguishedName.Replace("/", "\/")
-                            EntryId = ""
-                            ResultType = "OrphanedMPFDisconnected"
+                            Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
+                            EntryId        = ""
+                            ResultType     = "OrphanedMPFDisconnected"
                             ActionRequired = "This requires manual intervention. Either the directory object should be deleted, or the public folder should be mail-enabled, or both."
                         }
 
@@ -149,9 +197,9 @@
                     $command = GetCommandToMergeEmailAddresses $pf $thisMPF
 
                     $params = @{
-                        Identity = $thisMPF.DistinguishedName.Replace("/", "\/")
-                        EntryId = ""
-                        ResultType = "OrphanedMPFDuplicate"
+                        Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
+                        EntryId        = ""
+                        ResultType     = "OrphanedMPFDuplicate"
                         ActionRequired = "Delete this directory object"
                     }
 
@@ -162,9 +210,9 @@
                     New-TestMailEnabledFolderResult @params
                 } else {
                     $params = @{
-                        Identity = $thisMPF.DistinguishedName.Replace("/", "\/")
-                        EntryId = ""
-                        ResultType = "OrphanedMPFDisconnected"
+                        Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
+                        EntryId        = ""
+                        ResultType     = "OrphanedMPFDisconnected"
                         ActionRequired = "This requires manual intervention. Either the directory object should be deleted, or the public folder should be mail-enabled, or both."
                     }
 
@@ -172,9 +220,9 @@
                 }
             } else {
                 $params = @{
-                    Identity = $thisMPF.DistinguishedName.Replace("/", "\/")
-                    EntryId = ""
-                    ResultType = "OrphanedMPF"
+                    Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
+                    EntryId        = ""
+                    ResultType     = "OrphanedMPF"
                     ActionRequired = "Delete this directory object"
                 }
 
@@ -185,127 +233,13 @@
 
     end {
         Write-Progress @progressParams -Completed
-    }
-}
 
-function GetCommandToMergeEmailAddresses($publicFolder, $orphanedMailPublicFolder) {
-    $linkedMailPublicFolder = Get-PublicFolder $publicFolder.Identity | Get-MailPublicFolder
-    $emailAddressesOnGoodObject = @($linkedMailPublicFolder.EmailAddresses | Where-Object { $_.ToString().StartsWith("smtp:", "OrdinalIgnoreCase") } | ForEach-Object { $_.ToString().Substring($_.ToString().IndexOf(':') + 1) })
-    $emailAddressesOnBadObject = @($orphanedMailPublicFolder.EmailAddresses | Where-Object { $_.ToString().StartsWith("smtp:", "OrdinalIgnoreCase") } | ForEach-Object { $_.ToString().Substring($_.ToString().IndexOf(':') + 1) })
-    $emailAddressesToAdd = $emailAddressesOnBadObject | Where-Object { -not $emailAddressesOnGoodObject.Contains($_) }
-    $emailAddressesToAdd = $emailAddressesToAdd | ForEach-Object { "`"" + $_ + "`"" }
-    if ($emailAddressesToAdd.Count -gt 0) {
-        $emailAddressesToAddString = [string]::Join(",", $emailAddressesToAdd)
-        $command = "Get-PublicFolder `"$($publicFolder.Identity)`" | Get-MailPublicFolder | Set-MailPublicFolder -EmailAddresses @{add=$emailAddressesToAddString}"
-        return $command
-    } else {
-        return $null
-    }
-}
-
-function New-TestMailEnabledFolderResult {
-    [CmdletBinding()]
-    param (
-        [Parameter(Position = 0)]
-        [string]
-        $Identity,
-
-        [Parameter(Position = 1)]
-        [string]
-        $EntryId,
-
-        [Parameter(Position = 2)]
-        [ValidateSet("MailEnabledSystemFolder", "MailEnabledWithNoADObject", "MailDisabledWithProxyGuid", "OrphanedMPF", "OrphanedMPFDuplicate", "OrphanedMPFDisconnected")]
-        [string]
-        $ResultType,
-
-        [Parameter(Position = 3)]
-        [string]
-        $ActionRequired
-    )
-
-    process {
         [PSCustomObject]@{
             TestName        = "MailEnabledFolder"
-            ResultType      = $ResultType
+            ResultType      = "Duration"
             Identity        = $Identity
             EntryId         = $EntryId
             $ActionRequired = $ActionRequired
-        }
-    }
-}
-
-function Write-TestMailEnabledFolderResult {
-    [CmdletBinding()]
-    param (
-        [Parameter(ValueFromPipeline = $true)]
-        [object]
-        $TestResult
-    )
-
-    begin {
-        $results = [System.Collections.ArrayList]::new()
-    }
-
-    process {
-        $results += $TestResult
-    }
-
-    end {
-        if ($results.Count -gt 0) {
-            $byResultType = $results | Group-Object ResultType
-            foreach ($group in $byResultType) {
-                if ($group.Name -eq "MailEnabledSystemFolder") {
-                    Write-Host
-                    Write-Host $group.Count "system folders are mail-enabled. These folders should be mail-disabled."
-                } elseif ($group.Name -eq "MailEnabledWithNoADObject") {
-                    Write-Host
-                    Write-Host $group.Count "folders are mail-enabled, but have no AD object. These folders should be mail-disabled."
-                } elseif ($group.Name -eq "MailDisabledWithProxyGuid") {
-                    Write-Host
-                    Write-Host $group.Count "folders are mail-disabled, but have proxy GUID values. These folders should be mail-enabled."
-                } elseif ($group.Name -eq "OrphanedMPF") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders are orphaned. These directory objects should be deleted."
-                } elseif ($group.Name -eq "OrphanedMPFDuplicate") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders point to public folders that point to a different directory object. These should be deleted. Their email addresses may be merged onto the linked object."
-                } elseif ($group.Name -eq "OrphanedMPFDisconnected") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders point to public folders that are mail-disabled. These require manual intervention. Either the directory object should be deleted, or the folder should be mail-enabled, or both."
-                }
-            }
-        }
-    }
-}
-
-function Update-MailEnabledFolderResult {
-    [CmdletBinding()]
-    param (
-        [Parameter(ValueFromPipeline = $true)]
-        [object]
-        $TestResult
-    )
-
-    process {
-        if ($TestResult.ResultType -eq "MailEnabledSystemFolder") {
-            Write-Host
-            Write-Host $group.Count "system folders are mail-enabled. These folders should be mail-disabled."
-        } elseif ($TestResult.ResultType -eq "MailEnabledWithNoADObject") {
-            Write-Host
-            Write-Host $group.Count "folders are mail-enabled, but have no AD object. These folders should be mail-disabled."
-        } elseif ($TestResult.ResultType -eq "MailDisabledWithProxyGuid") {
-            Write-Host
-            Write-Host $group.Count "folders are mail-disabled, but have proxy GUID values. These folders should be mail-enabled."
-        } elseif ($TestResult.ResultType -eq "OrphanedMPF") {
-            Write-Host
-            Write-Host $group.Count "mail public folders are orphaned. These directory objects should be deleted."
-        } elseif ($TestResult.ResultType -eq "OrphanedMPFDuplicate") {
-            Write-Host
-            Write-Host $group.Count "mail public folders point to public folders that point to a different directory object. These should be deleted. Their email addresses may be merged onto the linked object."
-        } elseif ($TestResult.ResultType -eq "OrphanedMPFDisconnected") {
-            Write-Host
-            Write-Host $group.Count "mail public folders point to public folders that are mail-disabled. These require manual intervention. Either the directory object should be deleted, or the folder should be mail-enabled, or both."
         }
     }
 }
