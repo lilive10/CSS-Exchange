@@ -10,6 +10,7 @@
         $ResultType,
 
         [Parameter(Mandatory = $true)]
+        [ValidateSet("Information", "Warning", "Error")]
         [string]
         $Severity,
 
@@ -20,26 +21,18 @@
         [Parameter(Mandatory = $true)]
         [string]
         $FolderEntryId,
+
+        [Parameter(Mandatory = $false)]
+        [string]
+        $ResultData
     )
 
-    begin {
-
-    }
-
-    process {
-        [PSCustomObject]@{
-            TestName       = "DumpsterMapping"
-            ResultType     = "BadDumpsterMapping"
-            Severity       = "Error"
-            Data           = [PSCustomObject]@{
-                Identity = $Folder.Identity
-                EntryId  = $Folder.EntryId
-            }
-            ActionRequired = $ActionRequired
-        }
-    }
-
-    end {
-
+    [PSCustomObject]@{
+        TestName       = $TestName
+        ResultType     = $ResultType
+        Severity       = $Severity
+        FolderIdentity = $FolderIdentity
+        FolderEntryId  = $FolderEntryId
+        ResultData     = $ResultData
     }
 }

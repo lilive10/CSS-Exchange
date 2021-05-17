@@ -1,4 +1,6 @@
-﻿function Test-MailEnabledFolder {
+﻿. $PSScriptRoot\..\New-TestResult.ps1
+
+function Test-MailEnabledFolder {
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param (
@@ -35,25 +37,28 @@
                 $EntryId,
 
                 [Parameter(Position = 2)]
-                [ValidateSet("MailEnabledSystemFolder", "MailEnabledWithNoADObject", "MailDisabledWithProxyGuid", "OrphanedMPF", "OrphanedMPFDuplicate", "OrphanedMPFDisconnected")]
+                [ValidateSet("Duration", "MailEnabledSystemFolder", "MailEnabledWithNoADObject", "MailDisabledWithProxyGuid", "OrphanedMPF", "OrphanedMPFDuplicate", "OrphanedMPFDisconnected")]
                 [string]
                 $ResultType,
 
                 [Parameter(Position = 3)]
                 [string]
-                $ActionRequired
+                $ResultData
             )
 
-            process {
-                [PSCustomObject]@{
-                    TestName        = "MailEnabledFolder"
-                    ResultType      = $ResultType
-                    Severity        = "Error"
-                    Identity        = $Identity
-                    EntryId         = $EntryId
-                    $ActionRequired = $ActionRequired
-                }
+            $params = @{
+                TestName       = "MailEnabledFolder"
+                ResultType     = $ResultType
+                Severity       = "Error"
+                FolderIdentity = $Identity
+                FolderEntryId  = $EntryId
             }
+
+            if ($null -ne $ResultData) {
+                $params.ResultData = $ResultData
+            }
+
+            New-TestResult @params
         }
 
         $startTime = Get-Date
@@ -68,15 +73,14 @@
     }
 
     process {
-        $FolderData.NonIpmSubtree | Where-Object { $_.MailEnabled -eq $true } | ForEach-Object { New-TestMailEnabledFolderResult $_.Identity $_.EntryId "MailEnabledSystemFolder" "Run Disable-MailPublicFolder on this folder" }
+        $FolderData.NonIpmSubtree | Where-Object { $_.MailEnabled -eq $true } | ForEach-Object { New-TestMailEnabledFolderResult $_.Identity $_.EntryId "MailEnabledSystemFolder" }
         $ipmSubtreeMailEnabled = @($FolderData.IpmSubtree | Where-Object { $_.MailEnabled -eq $true })
         $mailDisabledWithProxyGuid = @($FolderData.IpmSubtree | Where-Object { $_.MailEnabled -ne $true -and -not [string]::IsNullOrEmpty($_.MailRecipientGuid) -and [Guid]::Empty -ne $_.MailRecipientGuid } | ForEach-Object { $_.Identity.ToString() })
         $mailDisabledWithProxyGuid | ForEach-Object {
             $params = @{
-                Identity       = $_.Identity
-                EntryId        = $_.EntryId
-                ResultType     = "MailDisabledWithProxyGuid"
-                ActionRequired = "Run Enable-MailPublicFolder on this folder. It can be mail-disabled again afterwards if desired."
+                Identity   = $_.Identity
+                EntryId    = $_.EntryId
+                ResultType = "MailDisabledWithProxyGuid"
             }
 
             New-TestMailEnabledFolderResult @params
@@ -97,10 +101,9 @@
             $result = Get-MailPublicFolder $ipmSubtreeMailEnabled[$i].Identity -ErrorAction SilentlyContinue
             if ($null -eq $result) {
                 $params = @{
-                    Identity       = $ipmSubtreeMailEnabled[$i].Identity
-                    EntryId        = $ipmSubtreeMailEnabled[$i].EntryId
-                    ResultType     = "MailEnabledWithNoADObject"
-                    ActionRequired = "Run Disable-MailPublicFolder on this folder"
+                    Identity   = $ipmSubtreeMailEnabled[$i].Identity
+                    EntryId    = $ipmSubtreeMailEnabled[$i].EntryId
+                    ResultType = "MailEnabledWithNoADObject"
                 }
 
                 New-TestMailEnabledFolderResult @params
@@ -165,23 +168,18 @@
                         $command = GetCommandToMergeEmailAddresses $pf $thisMPF
 
                         $params = @{
-                            Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
-                            EntryId        = ""
-                            ResultType     = "OrphanedMPFDuplicate"
-                            ActionRequired = "Delete this directory object"
-                        }
-
-                        if ($null -ne $command) {
-                            $params.ActionRequired += ", then run the following command to merge the email addresses onto the remaining object:`n`n$command"
+                            Identity   = $thisMPF.DistinguishedName.Replace("/", "\/")
+                            EntryId    = ""
+                            ResultType = "OrphanedMPFDuplicate"
+                            ResultData = $command
                         }
 
                         New-TestMailEnabledFolderResult @params
                     } else {
                         $params = @{
-                            Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
-                            EntryId        = ""
-                            ResultType     = "OrphanedMPFDisconnected"
-                            ActionRequired = "This requires manual intervention. Either the directory object should be deleted, or the public folder should be mail-enabled, or both."
+                            Identity   = $thisMPF.DistinguishedName.Replace("/", "\/")
+                            EntryId    = ""
+                            ResultType = "OrphanedMPFDisconnected"
                         }
 
                         New-TestMailEnabledFolderResult @params
@@ -197,33 +195,30 @@
                     $command = GetCommandToMergeEmailAddresses $pf $thisMPF
 
                     $params = @{
-                        Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
-                        EntryId        = ""
-                        ResultType     = "OrphanedMPFDuplicate"
-                        ActionRequired = "Delete this directory object"
+                        Identity   = $thisMPF.DistinguishedName.Replace("/", "\/")
+                        EntryId    = ""
+                        ResultType = "OrphanedMPFDuplicate"
                     }
 
                     if ($null -ne $command) {
-                        $params.ActionRequired += ", then run the following command to merge the email addresses onto the remaining object:`n`n$command"
+                        $params.ResultData = $command
                     }
 
                     New-TestMailEnabledFolderResult @params
                 } else {
                     $params = @{
-                        Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
-                        EntryId        = ""
-                        ResultType     = "OrphanedMPFDisconnected"
-                        ActionRequired = "This requires manual intervention. Either the directory object should be deleted, or the public folder should be mail-enabled, or both."
+                        Identity   = $thisMPF.DistinguishedName.Replace("/", "\/")
+                        EntryId    = ""
+                        ResultType = "OrphanedMPFDisconnected"
                     }
 
                     New-TestMailEnabledFolderResult @params
                 }
             } else {
                 $params = @{
-                    Identity       = $thisMPF.DistinguishedName.Replace("/", "\/")
-                    EntryId        = ""
-                    ResultType     = "OrphanedMPF"
-                    ActionRequired = "Delete this directory object"
+                    Identity   = $thisMPF.DistinguishedName.Replace("/", "\/")
+                    EntryId    = ""
+                    ResultType = "OrphanedMPF"
                 }
 
                 New-TestMailEnabledFolderResult @params
@@ -234,12 +229,14 @@
     end {
         Write-Progress @progressParams -Completed
 
-        [PSCustomObject]@{
-            TestName        = "MailEnabledFolder"
-            ResultType      = "Duration"
-            Identity        = $Identity
-            EntryId         = $EntryId
-            $ActionRequired = $ActionRequired
+        $params = @{
+            TestName       = "MailEnabledFolder"
+            ResultType     = "Duration"
+            FolderIdentity = ""
+            FolderEntryId  = ""
+            ResultData     = ((Get-Date) - $startTime)
         }
+
+        New-TestResult @params
     }
 }

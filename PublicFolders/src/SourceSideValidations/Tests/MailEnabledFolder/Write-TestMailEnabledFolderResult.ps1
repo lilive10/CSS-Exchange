@@ -7,37 +7,46 @@
     )
 
     begin {
-        $results = [System.Collections.ArrayList]::new()
+        $mailEnabledSystemFolder = 0
+        $mailEnabledWithNoADObject = 0
+        $mailDisabledWithProxyGuid = 0
+        $orphanedMPF = 0
+        $orphanedMPFDuplicate = 0
+        $orphanedMPFDisconnected = 0
     }
 
     process {
-        $results += $TestResult
+        if ($TestResult.TestName -eq "MailEnabledFolder") {
+            switch ($TestResult.ResultType) {
+                "MailEnabledSystemFolder" { $mailEnabledSystemFolder++ }
+                "MailEnabledWithNoADObject" { $mailEnabledWithNoADObject++ }
+                "MailDisabledWithProxyGuid" { $mailDisabledWithProxyGuid++ }
+                "OrphanedMPF" { $orphanedMPF++ }
+                "OrphanedMPFDuplicate" { $orphanedMPFDuplicate++ }
+                "OrphanedMPFDisconnected" { $orphanedMPFDisconnected++ }
+            }
+        }
     }
 
     end {
-        if ($results.Count -gt 0) {
-            $byResultType = $results | Group-Object ResultType
-            foreach ($group in $byResultType) {
-                if ($group.Name -eq "MailEnabledSystemFolder") {
-                    Write-Host
-                    Write-Host $group.Count "system folders are mail-enabled. These folders should be mail-disabled."
-                } elseif ($group.Name -eq "MailEnabledWithNoADObject") {
-                    Write-Host
-                    Write-Host $group.Count "folders are mail-enabled, but have no AD object. These folders should be mail-disabled."
-                } elseif ($group.Name -eq "MailDisabledWithProxyGuid") {
-                    Write-Host
-                    Write-Host $group.Count "folders are mail-disabled, but have proxy GUID values. These folders should be mail-enabled."
-                } elseif ($group.Name -eq "OrphanedMPF") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders are orphaned. These directory objects should be deleted."
-                } elseif ($group.Name -eq "OrphanedMPFDuplicate") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders point to public folders that point to a different directory object. These should be deleted. Their email addresses may be merged onto the linked object."
-                } elseif ($group.Name -eq "OrphanedMPFDisconnected") {
-                    Write-Host
-                    Write-Host $group.Count "mail public folders point to public folders that are mail-disabled. These require manual intervention. Either the directory object should be deleted, or the folder should be mail-enabled, or both."
-                }
-            }
+        if ($mailEnabledSystemFolder -gt 0) {
+            Write-Host
+            Write-Host $mailEnabledSystemFolder "system folders are mail-enabled. These folders should be mail-disabled."
+        } elseif ($mailEnabledWithNoADObject -gt 0) {
+            Write-Host
+            Write-Host $mailEnabledWithNoADObject "folders are mail-enabled, but have no AD object. These folders should be mail-disabled."
+        } elseif ($mailDisabledWithProxyGuid -gt 0) {
+            Write-Host
+            Write-Host $mailDisabledWithProxyGuid "folders are mail-disabled, but have proxy GUID values. These folders should be mail-enabled."
+        } elseif ($orphanedMPF -gt 0) {
+            Write-Host
+            Write-Host $orphanedMPF "mail public folders are orphaned. These directory objects should be deleted."
+        } elseif ($orphanedMPFDuplicate -gt 0) {
+            Write-Host
+            Write-Host $orphanedMPFDuplicate "mail public folders point to public folders that point to a different directory object. These should be deleted. Their email addresses may be merged onto the linked object."
+        } elseif ($orphanedMPFDisconnected -gt 0) {
+            Write-Host
+            Write-Host $orphanedMPFDisconnected "mail public folders point to public folders that are mail-disabled. These require manual intervention. Either the directory object should be deleted, or the folder should be mail-enabled, or both."
         }
     }
 }

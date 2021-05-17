@@ -4,13 +4,14 @@ param (
     [bool]
     $StartFresh = $true,
 
-    [Parameter(Mandatory = $true, ParameterSetName = "RemoveInvalidPermissions")]
+    [Parameter(Mandatory = $true, ParameterSetName = "Repair")]
     [Switch]
-    $RemoveInvalidPermissions,
+    $Repair,
 
-    [Parameter(ParameterSetName = "RemoveInvalidPermissions")]
+    [Parameter(ParameterSetName = "Default")]
+    [Parameter(ParameterSetName = "Repair")]
     [string]
-    $CsvFile = (Join-Path $PSScriptRoot "InvalidPermissions.csv"),
+    $ResultsFile = (Join-Path $PSScriptRoot "ValidationResults.csv"),
 
     [Parameter()]
     [switch]
@@ -31,12 +32,13 @@ if (-not $SkipVersionCheck) {
     }
 }
 
-if ($RemoveInvalidPermissions) {
-    if (-not (Test-Path $CsvFile)) {
-        Write-Error "File not found: $CsvFile"
+if ($Repair) {
+    if (-not (Test-Path $ResultsFile)) {
+        Write-Error "File not found: $ResultsFile. Please run without -Repair to generate a results file."
     } else {
-        Remove-InvalidPermission -CsvFile $CsvFile
+        Import-Csv $ResultsFile | Repair-FolderPermission
     }
+
     return
 }
 
@@ -90,61 +92,28 @@ if ($script:anyDatabaseDown) {
 Write-Progress @progressParams -Status "Step 2 of 5"
 
 $badDumpsters = @(Test-DumpsterMapping -FolderData $folderData)
+$badDumpsters | Write-TestDumpsterMappingResult
+$badDumpsters | Export-Csv $ResultsFile -NoTypeInformation
 
 Write-Progress @progressParams -Status "Step 3 of 5"
 
 $limitsExceeded = Get-LimitsExceeded -FolderData $folderData
+$limitsExceeded | Write-TestFolderLimitResult
+$limitsExceeded | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 Write-Progress @progressParams -Status "Step 4 of 5"
 
 $badMailEnabled = Get-BadMailEnabledFolder -FolderData $folderData
+$badMailEnabled | Write-TestMailEnabledFolderResult
+$badMailEnabled | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 Write-Progress @progressParams -Status "Step 5 of 5"
 
 $badPermissions = @(Test-BadPermission -FolderData $folderData)
+$badPermissions | Write-TestBadPermissionResult
+$badPermissions | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 # Output the results
-
-$badMailEnabled | Write-TestMailEnabledFolderResult
-
-$badDumpsters | Write-TestDumpsterMappingResult
-
-if ($limitsExceeded.ChildCount.Count -gt 0) {
-    $tooManyChildFoldersFile = Join-Path $PSScriptRoot "TooManyChildFolders.txt"
-    Set-Content -Path $tooManyChildFoldersFile -Value $limitsExceeded.ChildCount
-
-    Write-Host
-    Write-Host $limitsExceeded.ChildCount.Count "folders have exceeded the child folder limit of 10,000. These folders are"
-    Write-Host "listed in the following file:"
-    Write-Host $tooManyChildFoldersFile -ForegroundColor Green
-    Write-Host "Under each of the listed folders, child folders should be relocated or deleted to reduce this number."
-}
-
-if ($limitsExceeded.FolderPathDepth.Count -gt 0) {
-    $pathTooDeepFile = Join-Path $PSScriptRoot "PathTooDeep.txt"
-    Set-Content -Path $pathTooDeepFile -Value $limitsExceeded.FolderPathDepth
-
-    Write-Host
-    Write-Host $limitsExceeded.FolderPathDepth.Count "folders have exceeded the path depth limit of 299. These folders are"
-    Write-Host "listed in the following file:"
-    Write-Host $pathTooDeepFile -ForegroundColor Green
-    Write-Host "These folders should be relocated to reduce the path depth, or deleted."
-}
-
-if ($limitsExceeded.ItemCount.Count -gt 0) {
-    $tooManyItemsFile = Join-Path $PSScriptRoot "TooManyItems.txt"
-    Set-Content -Path $tooManyItemsFile -Value $limitsExceeded.ItemCount
-
-    Write-Host
-    Write-Host $limitsExceeded.ItemCount.Count "folders exceed the maximum of 1 million items. These folders are listed"
-    Write-Host "in the following file:"
-    Write-Host $tooManyItemsFile
-    Write-Host "In each of these folders, items should be deleted to reduce the item count."
-}
-
-$badPermissions | Write-TestBadPermissionResult
-
-
 
 $folderCountMigrationLimit = 250000
 

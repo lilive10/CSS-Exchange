@@ -1,27 +1,27 @@
 ﻿function Write-TestBadPermissionResult {
     [CmdletBinding()]
     param (
-
+        [Parameter(ValueFromPipeline = $true)]
+        [object]
+        $TestResult
     )
 
     begin {
-
+        $badPermissions = 0
     }
 
     process {
-        if ($badPermissions.Count -gt 0) {
-            $badPermissionsFile = Join-Path $PSScriptRoot "InvalidPermissions.csv"
-            $badPermissions | Export-Csv -Path $badPermissionsFile -NoTypeInformation
-
-            Write-Host
-            Write-Host $badPermissions.Count "invalid permissions were found. These are listed in the following CSV file:"
-            Write-Host $badPermissionsFile -ForegroundColor Green
-            Write-Host "The invalid permissions can be removed using the RemoveInvalidPermissions switch as follows:"
-            Write-Host ".\SourceSideValidations.ps1 -RemoveInvalidPermissions" -ForegroundColor Green
+        if ($TestResult.TestName -eq "Permission" -and $TestResult.ResultType -eq "BadPermission") {
+            $badPermissions++
         }
     }
 
     end {
-
+        if ($badPermissions.Count -gt 0) {
+            Write-Host
+            Write-Host $badPermissions.Count "invalid permissions were found."
+            Write-Host "The invalid permissions can be removed using the RemoveInvalidPermissions switch as follows:"
+            Write-Host ".\SourceSideValidations.ps1 -RemoveInvalidPermissions" -ForegroundColor Green
+        }
     }
 }

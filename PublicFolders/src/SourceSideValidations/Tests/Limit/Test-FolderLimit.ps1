@@ -1,4 +1,6 @@
-﻿function Get-LimitsExceeded {
+﻿. $PSScriptRoot\..\New-TestResult.ps1
+
+function Test-FolderLimit {
     <#
     .SYNOPSIS
         Flags folders that exceed the child count limit, depth limit,
@@ -26,6 +28,10 @@
             Id       = 2
             ParentId = 1
         }
+        $testResultParams = @{
+            TestName = "Limit"
+            Severity = "Error"
+        }
     }
 
     process {
@@ -37,22 +43,40 @@
             }
 
             if ($FolderData.ParentEntryIdCounts[$_.EntryId] -gt 10000) {
-                $limitsExceeded.ChildCount += $_.Identity.ToString()
+                $testResultParams.ResultType = "ChildCount"
+                $testResultParams.FolderIdentity = $_.Identity.ToString()
+                $testResultParams.FolderEntryId = $_.EntryId.ToString()
+                New-TestResult @testResultParams
             }
 
             if ([int]$_.FolderPathDepth -gt 299) {
-                $limitsExceeded.FolderPathDepth += $_.Identity.ToString()
+                $testResultParams.ResultType = "FolderPathDepth"
+                $testResultParams.FolderIdentity = $_.Identity.ToString()
+                $testResultParams.FolderEntryId = $_.EntryId.ToString()
+                New-TestResult @testResultParams
             }
 
             if ($_.ItemCount -gt 1000000) {
-                $limitsExceeded.ItemCount += $_.Identity.ToString()
+                $testResultParams.ResultType = "ItemCount"
+                $testResultParams.FolderIdentity = $_.Identity.ToString()
+                $testResultParams.FolderEntryId = $_.EntryId.ToString()
+                New-TestResult @testResultParams
             }
         }
     }
 
     end {
         Write-Progress @progressParams -Completed
-        Write-Host "Get-LimitsExceeded duration" ((Get-Date) - $startTime)
-        return $limitsExceeded
+
+        $params = @{
+            TestName       = $testResultParams.TestName
+            ResultType     = "Duration"
+            Severity       = "Information"
+            FolderIdentity = ""
+            FolderEntryId  = ""
+            ResultData     = ((Get-Date) - $startTime)
+        }
+
+        New-TestResult @params
     }
 }
