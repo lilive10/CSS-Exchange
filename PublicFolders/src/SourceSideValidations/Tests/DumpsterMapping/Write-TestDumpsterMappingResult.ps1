@@ -11,7 +11,9 @@
     }
 
     process {
-        $badDumpsters += $TestResult
+        if ($TestResult.Name -eq "DumpsterMapping" -and $TestResult.ResultType -eq "BadDumpsterMapping") {
+            $badDumpsters += $TestResult
+        }
     }
 
     end {

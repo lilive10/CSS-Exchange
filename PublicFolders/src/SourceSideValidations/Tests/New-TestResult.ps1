@@ -14,15 +14,15 @@
         [string]
         $Severity,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter()]
         [string]
         $FolderIdentity,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter()]
         [string]
         $FolderEntryId,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter()]
         [string]
         $ResultData
     )

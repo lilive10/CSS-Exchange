@@ -1,6 +1,4 @@
-﻿. $PSScriptRoot\..\New-TestResult.ps1
-
-function Test-BadPermissionJob {
+﻿function Test-BadPermissionJob {
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Incorrect rule result')]
     param (
@@ -49,7 +47,8 @@ function Test-BadPermissionJob {
                     ($null -eq $_.User.ADRecipient) -and
                     ($_.User.UserType.ToString() -eq "Unknown")
                 ) {
-                    $params = @{
+                    # We can't use New-TestResult here since we are inside a job
+                    [PSCustomObject]@{
                         TestName       = "Permission"
                         ResultType     = "BadPermission"
                         Severity       = "Error"
@@ -57,8 +56,6 @@ function Test-BadPermissionJob {
                         FolderEntryId  = $entryId
                         ResultData     = $_.User.DisplayName
                     }
-
-                    New-TestResult @params
                 }
             }
         }
@@ -67,15 +64,13 @@ function Test-BadPermissionJob {
     end {
         Write-Progress @progressParams -Completed
         $duration = ((Get-Date) - $startTime)
-        $params = {
-            TestName   = "Permission"
-            ResultType = "$Mailbox Duration"
-            Severity   = "Information"
+        [PSCustomObject]@{
+            TestName       = "Permission"
+            ResultType     = "$Mailbox Duration"
+            Severity       = "Information"
             FolderIdentity = ""
-            FolderEntryId = ""
-            ResultData = ((Get-Date) - $startTime)
+            FolderEntryId  = ""
+            ResultData     = ((Get-Date) - $startTime)
         }
-
-        New-TestResult @params
     }
 }

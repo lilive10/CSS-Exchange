@@ -232,6 +232,7 @@ function Test-MailEnabledFolder {
         $params = @{
             TestName       = "MailEnabledFolder"
             ResultType     = "Duration"
+            Severity       = "Information"
             FolderIdentity = ""
             FolderEntryId  = ""
             ResultData     = ((Get-Date) - $startTime)

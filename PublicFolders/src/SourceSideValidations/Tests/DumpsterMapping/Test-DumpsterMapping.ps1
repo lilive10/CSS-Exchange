@@ -1,4 +1,6 @@
-﻿function Test-DumpsterMapping {
+﻿. $PSScriptRoot\..\New-TestResult.ps1
+
+function Test-DumpsterMapping {
     [CmdletBinding()]
     [OutputType([System.Object[]])]
     param (
@@ -46,24 +48,19 @@
             param (
                 [Parameter(Position = 0)]
                 [object]
-                $Folder,
-
-                [Parameter(Position = 1)]
-                [string]
-                $ActionRequired
+                $Folder
             )
 
             process {
-                [PSCustomObject]@{
+                $params = @{
                     TestName       = "DumpsterMapping"
                     ResultType     = "BadDumpsterMapping"
                     Severity       = "Error"
-                    Data           = [PSCustomObject]@{
-                        Identity = $Folder.Identity
-                        EntryId  = $Folder.EntryId
-                    }
-                    ActionRequired = $ActionRequired
+                    FolderIdentity = $Folder.Identity
+                    FolderEntryId  = $Folder.EntryId
                 }
+
+                New-TestResult @params
             }
         }
 
@@ -87,7 +84,7 @@
             }
 
             if (-not (Test-DumpsterValid $_ $FolderData)) {
-                New-TestDumpsterMappingResult $_ "The -ExcludeDumpsters switch can be used to skip these folders during migration, or the folders can be deleted."
+                New-TestDumpsterMappingResult $_
             }
         }
 
@@ -103,12 +100,13 @@
     end {
         Write-Progress @progressParams -Completed
 
-        [PSCustomObject]@{
-            TestName       = "DumpsterMapping"
-            ResultType     = "Duration"
-            Severity       = "Information"
-            Data           = ((Get-Date) - $startTime)
-            ActionRequired = $null
+        $params = @{
+            TestName   = "DumpsterMapping"
+            ResultType = "Duration"
+            Severity   = "Information"
+            ResultData = ((Get-Date) - $startTime)
         }
+
+        New-TestResult @params
     }
 }

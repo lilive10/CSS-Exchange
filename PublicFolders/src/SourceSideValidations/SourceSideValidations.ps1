@@ -8,8 +8,13 @@ param (
     [Switch]
     $Repair,
 
+    [Parameter(Mandatory = $true, ParameterSetName = "ShowPreviousResults")]
+    [Switch]
+    $ShowPreviousResults,
+
     [Parameter(ParameterSetName = "Default")]
     [Parameter(ParameterSetName = "Repair")]
+    [Parameter(ParameterSetName = "ShowPreviousResults")]
     [string]
     $ResultsFile = (Join-Path $PSScriptRoot "ValidationResults.csv"),
 
@@ -32,6 +37,11 @@ if (-not $SkipVersionCheck) {
         Write-Host "Script was updated. Please rerun the command."
         return
     }
+}
+
+if ($ShowPreviousResults) {
+    Import-Csv $ResultsFile | Format-Table TestName, ResultType, Severity, FolderIdentity, ResultData -AutoSize
+    return
 }
 
 if ($Repair) {
@@ -93,29 +103,30 @@ if ($script:anyDatabaseDown) {
 
 Write-Progress @progressParams -Status "Step 2 of 5"
 
-$badDumpsters = @(Test-DumpsterMapping -FolderData $folderData)
-$badDumpsters | Write-TestDumpsterMappingResult
+$badDumpsters = Test-DumpsterMapping -FolderData $folderData
 $badDumpsters | Export-Csv $ResultsFile -NoTypeInformation
 
 Write-Progress @progressParams -Status "Step 3 of 5"
 
-$limitsExceeded = Get-LimitsExceeded -FolderData $folderData
-$limitsExceeded | Write-TestFolderLimitResult
+$limitsExceeded = Test-FolderLimit -FolderData $folderData
 $limitsExceeded | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 Write-Progress @progressParams -Status "Step 4 of 5"
 
-$badMailEnabled = Get-BadMailEnabledFolder -FolderData $folderData
-$badMailEnabled | Write-TestMailEnabledFolderResult
+$badMailEnabled = Test-MailEnabledFolder -FolderData $folderData
 $badMailEnabled | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 Write-Progress @progressParams -Status "Step 5 of 5"
 
-$badPermissions = @(Test-BadPermission -FolderData $folderData)
-$badPermissions | Write-TestBadPermissionResult
+$badPermissions = Test-Permission -FolderData $folderData
 $badPermissions | Export-Csv $ResultsFile -NoTypeInformation -Append
 
 # Output the results
+
+$badDumpsters | Write-TestDumpsterMappingResult
+$limitsExceeded | Write-TestFolderLimitResult
+$badMailEnabled | Write-TestMailEnabledFolderResult
+$badPermissions | Write-TestBadPermissionResult
 
 $folderCountMigrationLimit = 250000
 
@@ -132,6 +143,10 @@ if ($folderData.IpmSubtree.Count -gt $folderCountMigrationLimit) {
     Write-Host "New-MigrationBatch can be run with the -ExcludeDumpsters switch to skip the dumpster"
     Write-Host "folders, or public folders may be deleted to reduce the number of folders."
 }
+
+Write-Host
+Write-Host "Validation results were written to file:"
+Write-Host $ResultsFile -ForegroundColor Green
 
 $private:endTime = Get-Date
 
