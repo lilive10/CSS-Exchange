@@ -4,6 +4,10 @@ param (
     [bool]
     $StartFresh = $true,
 
+    [Parameter(Mandatory = $false, ParameterSetName = "Default")]
+    [switch]
+    $SlowTraversal,
+
     [Parameter(Mandatory = $true, ParameterSetName = "Repair")]
     [Switch]
     $Repair,
@@ -40,7 +44,12 @@ if (-not $SkipVersionCheck) {
 }
 
 if ($ShowPreviousResults) {
-    Import-Csv $ResultsFile | Format-Table TestName, ResultType, Severity, FolderIdentity, ResultData -AutoSize
+    $results = Import-Csv $ResultsFile
+    $results | Format-Table TestName, ResultType, Severity, FolderIdentity, ResultData -AutoSize
+    $results | Write-TestDumpsterMappingResult
+    $results | Write-TestFolderLimitResult
+    $results | Write-TestMailEnabledFolderResult
+    $results | Write-TestBadPermissionResult
     return
 }
 
@@ -72,7 +81,7 @@ $progressParams = @{
 
 Write-Progress @progressParams -Status "Step 1 of 5"
 
-$folderData = Get-FolderData -StartFresh $StartFresh
+$folderData = Get-FolderData -StartFresh $StartFresh -SlowTraversal $SlowTraversal
 
 if ($folderData.IpmSubtree.Count -lt 1) {
     return

@@ -37,7 +37,7 @@
 
         if ($itemCount -gt 0) {
             Write-Host
-            Write-Host $limitsExceeded.ItemCount.Count "folders exceed the maximum of 1 million items."
+            Write-Host $itemCount "folders exceed the maximum of 1 million items."
             Write-Host "In each of these folders, items should be deleted to reduce the item count."
         }
     }

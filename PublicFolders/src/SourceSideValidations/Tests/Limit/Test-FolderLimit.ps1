@@ -56,7 +56,7 @@ function Test-FolderLimit {
                 New-TestResult @testResultParams
             }
 
-            if ($_.ItemCount -gt 1000000) {
+            if ($FolderData.ItemCountDictionary[$_.EntryId] -gt 1000000) {
                 $testResultParams.ResultType = "ItemCount"
                 $testResultParams.FolderIdentity = $_.Identity.ToString()
                 $testResultParams.FolderEntryId = $_.EntryId.ToString()
