@@ -18,10 +18,12 @@ param (
     $SkipVersionCheck
 )
 
+. $PSScriptRoot\Tests\DumpsterMapping\AllFunctions.ps1
+. $PSScriptRoot\Tests\Limit\AllFunctions.ps1
+. $PSScriptRoot\Tests\MailEnabledFolder\AllFunctions.ps1
+. $PSScriptRoot\Tests\Permission\AllFunctions.ps1
 . $PSScriptRoot\Get-FolderData.ps1
-. $PSScriptRoot\Get-LimitsExceeded.ps1
 . $PSScriptRoot\JobQueue.ps1
-. $PSScriptRoot\Remove-InvalidPermission.ps1
 . $PSScriptRoot\..\..\..\Shared\Test-ScriptVersion.ps1
 
 if (-not $SkipVersionCheck) {
